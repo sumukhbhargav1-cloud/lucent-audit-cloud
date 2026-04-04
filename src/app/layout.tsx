@@ -18,9 +18,9 @@ export default function RootLayout({
       <body>
         <div className="app-shell">
           <TopNav />
-          {children}
+          <div className="page-container">{children}</div>
+          <BottomNav />
         </div>
-        <BottomNav />
       </body>
     </html>
   );

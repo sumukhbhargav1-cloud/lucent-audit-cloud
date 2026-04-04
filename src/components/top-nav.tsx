@@ -4,8 +4,8 @@ export function TopNav() {
   return (
     <header className="topbar">
       <div>
-        <p className="eyebrow">Hotel Guardian Cloud</p>
-        <h1>Hotel Audit & Operations</h1>
+        <h1>Hotel Ops</h1>
+        <p className="topbar-subtitle">Audit & Management System</p>
       </div>
       <Link href="/admin" className="ghost-button">
         Admin

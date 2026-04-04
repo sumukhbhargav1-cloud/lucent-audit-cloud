@@ -7,7 +7,7 @@ import { taskDefinitions } from "@/lib/mock-data";
 
 export default function WorkHoldsPage() {
   const [taskId, setTaskId] = useState(taskDefinitions[0].id);
-  const [photos, setPhotos] = useState<File[]>([]);
+  const [stepPhotos, setStepPhotos] = useState<(File | null)[]>([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,13 +17,28 @@ export default function WorkHoldsPage() {
     [taskId],
   );
 
+  const photoSlots = useMemo(
+    () => Array.from({ length: activeTask.stepCount }, (_, index) => stepPhotos[index] || null),
+    [activeTask.stepCount, stepPhotos],
+  );
+
+  function handleStepPhotoChange(index: number, file: File | null) {
+    setStepPhotos((current) => {
+      const next = Array.from({ length: activeTask.stepCount }, (_, i) => current[i] || null);
+      next[index] = file;
+      return next;
+    });
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setSuccess("");
 
-    if (photos.length < activeTask.stepCount) {
-      setError(`This task needs at least ${activeTask.stepCount} proof photo(s).`);
+    const files = photoSlots.filter((file): file is File => Boolean(file));
+
+    if (files.length < activeTask.stepCount) {
+      setError(`This task needs ${activeTask.stepCount} separate proof photo(s), one for each step.`);
       return;
     }
 
@@ -33,7 +48,7 @@ export default function WorkHoldsPage() {
       const formData = new FormData();
       formData.append("taskName", activeTask.name);
       formData.append("location", activeTask.location);
-      photos.forEach((photo) => formData.append("photos", photo));
+      files.forEach((photo) => formData.append("photos", photo));
 
       const response = await fetch("/api/submissions/task", {
         method: "POST",
@@ -50,7 +65,7 @@ export default function WorkHoldsPage() {
       }
 
       setSuccess(`Task proof submitted successfully. Drive folder: ${payload.result?.folderLink || "created"}`);
-      setPhotos([]);
+      setStepPhotos([]);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Task submission failed.");
     } finally {
@@ -87,7 +102,13 @@ export default function WorkHoldsPage() {
         <h3>Submit Task Proof</h3>
         <div className="field">
           <label>Task</label>
-          <select value={taskId} onChange={(event) => setTaskId(event.target.value)}>
+          <select
+            value={taskId}
+            onChange={(event) => {
+              setTaskId(event.target.value);
+              setStepPhotos([]);
+            }}
+          >
             {taskDefinitions.map((task) => (
               <option key={task.id} value={task.id}>
                 {task.name}
@@ -98,15 +119,21 @@ export default function WorkHoldsPage() {
         <div className="highlight-box">
           Selected task: {activeTask.name}. Required step photos: {activeTask.stepCount}. Location: {activeTask.location}.
         </div>
-        <div className="field">
-          <label>Step Proof Photos</label>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            multiple
-            onChange={(event) => setPhotos(Array.from(event.target.files || []))}
-          />
+        <div className="stack">
+          {photoSlots.map((photo, index) => (
+            <div className="field" key={`${activeTask.id}-step-${index + 1}`}>
+              <label>{`Step ${index + 1} Photo`}</label>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(event) => handleStepPhotoChange(index, event.target.files?.[0] || null)}
+              />
+              <span className="field-hint">
+                {photo ? `${photo.name}` : `Capture photo for step ${index + 1}`}
+              </span>
+            </div>
+          ))}
         </div>
         <SubmissionStatus error={error} success={success} />
         <button className="primary-button" disabled={loading}>

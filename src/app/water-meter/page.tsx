@@ -1,39 +1,99 @@
-import { PhotoField } from "@/components/photo-field";
+"use client";
+
+import { FormEvent, useState } from "react";
+import { SubmissionStatus } from "@/components/submission-status";
 import { StatusBadge } from "@/components/status-badge";
 import { waterLogs } from "@/lib/mock-data";
 
 export default function WaterMeterPage() {
+  const [slot, setSlot] = useState("12:00 PM");
+  const [reading, setReading] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (!photo) {
+      setError("A water meter photo is required.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("slot", slot);
+      formData.append("reading", reading);
+      formData.append("photo", photo);
+
+      const response = await fetch("/api/submissions/water-log", {
+        method: "POST",
+        body: formData,
+      });
+      const payload = (await response.json()) as {
+        ok: boolean;
+        error?: string;
+        result?: { folderLink?: string };
+      };
+
+      if (!payload.ok) {
+        throw new Error(payload.error || "Water log submission failed.");
+      }
+
+      setSuccess(`Water log submitted. Drive folder: ${payload.result?.folderLink || "created"}`);
+      setReading("");
+      setPhoto(null);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Water log submission failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <main className="stack">
       <section className="page-header">
         <div>
           <h2 className="section-title">Water Meter</h2>
-          <p className="muted">Bi-hourly mandatory readings with camera evidence, timestamps, and compliance reporting.</p>
+          <p className="muted">Bi-hourly meter readings now write directly to Drive and Sheets.</p>
         </div>
       </section>
 
-      <section className="form-card">
+      <form className="form-card" onSubmit={handleSubmit}>
         <h3>Submit Reading</h3>
         <div className="field-grid two">
           <div className="field">
-            <label>Scheduled slot</label>
-            <input value="12:00 PM" readOnly />
+            <label>Scheduled Slot</label>
+            <input value={slot} onChange={(event) => setSlot(event.target.value)} />
           </div>
           <div className="field">
-            <label>Timestamp</label>
-            <input value="2026-04-04 12:00:00 IST" readOnly />
+            <label>Reading Value</label>
+            <input value={reading} onChange={(event) => setReading(event.target.value)} required />
           </div>
         </div>
         <div className="field">
-          <label>Meter reading</label>
-          <input placeholder="Enter the current reading" />
+          <label>Meter Photo</label>
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={(event) => setPhoto(event.target.files?.[0] || null)}
+            required
+          />
         </div>
-        <PhotoField label="Meter Photo" />
-        <button className="primary-button">Submit Water Log</button>
-      </section>
+        <SubmissionStatus error={error} success={success} />
+        <button className="primary-button" disabled={loading}>
+          {loading ? "Submitting..." : "Submit Water Log"}
+        </button>
+      </form>
 
       <section className="section-card">
-        <h3 className="section-title">Today&apos;s Schedule</h3>
+        <h3 className="section-title">Today&apos;s Slots</h3>
         <div className="stack">
           {waterLogs.map((log) => (
             <div className="list-row" key={log.slot}>

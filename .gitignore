@@ -33,6 +33,9 @@ devserver.log
 .next-dev.log
 .next-dev.out.log
 .next-dev.err.log
+live-app.log
+prodserver.log
+test-image.png
 
 # env files (can opt-in for committing if needed)
 .env*

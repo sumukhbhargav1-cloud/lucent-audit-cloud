@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hotel Guardian Cloud
 
-## Getting Started
+Hotel Guardian Cloud is a mobile-first hotel audit and operations management system designed to grow into a multi-tenant SaaS platform.
 
-First, run the development server:
+## Included in this repository
+
+- Next.js App Router frontend
+- Mobile-first staff workflow screens
+- Worker Report module
+- Room Audit module
+- Work Holds task module
+- Issues and Inventory module
+- Water Meter module
+- Admin console shell
+- Google Drive server-side integration helpers
+- Google Sheets server-side integration helpers
+- Production architecture and delivery docs in `delivery/`
+
+## Verified status
+
+- `npm run lint` passes
+- `npm run build` passes
+- Google service account authentication verified
+- Google Sheets append verified
+- Google Drive folder creation verified
+
+## Local setup
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Configure environment values in `.env.local`.
+
+3. Start the app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Build for production:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Important environment variables
 
-## Learn More
+- `GOOGLE_SERVICE_ACCOUNT_JSON_PATH`
+- `GOOGLE_DRIVE_PARENT_FOLDER_ID`
+- `GOOGLE_SHEETS_SPREADSHEET_ID`
+- `GOOGLE_SHEETS_SHEET_NAME`
+- Firebase keys for Auth, Firestore, Functions, and Messaging
 
-To learn more about Next.js, take a look at the following resources:
+See:
+- `docs/google-setup.md`
+- `delivery/antigravity-deployment-prompt.md`
+- `delivery/database-schema.md`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Current implementation note
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The repository currently contains a verified app shell and server-side Google integrations. The next step is wiring all business submissions directly into Firebase + Drive + Sheets persistence flows for full production behavior.

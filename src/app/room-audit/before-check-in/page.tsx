@@ -2,16 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { SubmissionStatus } from "@/components/submission-status";
-
-const requiredPhotoLabels = [
-  "AC Remote",
-  "TV Remote",
-  "Set-top Box",
-  "Towel Count Photo",
-  "Bathroom Photos",
-  "Kettle & Tray",
-  "Menu Cards",
-];
+import { AUDIT_PHOTO_FIELDS, type AuditPhotoFieldKey } from "@/lib/audit-photo-fields";
 
 export default function BeforeCheckInPage() {
   const [guestName, setGuestName] = useState("Aarav Sharma");
@@ -20,17 +11,29 @@ export default function BeforeCheckInPage() {
   const [expectedCheckOutDate, setExpectedCheckOutDate] = useState("2026-04-06");
   const [towelCount, setTowelCount] = useState("2");
   const [bedCondition, setBedCondition] = useState("good");
-  const [photos, setPhotos] = useState<File[]>([]);
+  const [photos, setPhotos] = useState<Record<AuditPhotoFieldKey, File | null>>({
+    acRemote: null,
+    tvRemote: null,
+    setTopBox: null,
+    towelPhoto: null,
+    bathroomPhotos: null,
+    kettleTray: null,
+    menuCards: null,
+  });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const selectedPhotos = AUDIT_PHOTO_FIELDS.map((field) => photos[field.key]).filter(
+    (photo): photo is File => Boolean(photo),
+  );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setSuccess("");
 
-    if (photos.length < requiredPhotoLabels.length) {
+    if (selectedPhotos.length < AUDIT_PHOTO_FIELDS.length) {
       setError("All required audit photos must be captured before submission.");
       return;
     }
@@ -46,7 +49,7 @@ export default function BeforeCheckInPage() {
       formData.append("expectedCheckOutDate", expectedCheckOutDate);
       formData.append("towelCount", towelCount);
       formData.append("bedCondition", bedCondition);
-      photos.forEach((photo) => formData.append("photos", photo));
+      selectedPhotos.forEach((photo) => formData.append("photos", photo));
 
       const response = await fetch("/api/submissions/room-audit", {
         method: "POST",
@@ -122,17 +125,28 @@ export default function BeforeCheckInPage() {
           </select>
         </div>
         <div className="field">
-          <label>Required Photos</label>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            multiple
-            onChange={(event) => setPhotos(Array.from(event.target.files || []))}
-          />
-          <span className="field-hint">
-            Capture at least {requiredPhotoLabels.length} photos covering: {requiredPhotoLabels.join(", ")}.
-          </span>
+          <label>Required Upload Sections</label>
+          <div className="stack">
+            {AUDIT_PHOTO_FIELDS.map((field) => (
+              <div className="field" key={field.key}>
+                <label>{field.label}</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(event) =>
+                    setPhotos((current) => ({
+                      ...current,
+                      [field.key]: event.target.files?.[0] || null,
+                    }))
+                  }
+                />
+                <span className="field-hint">
+                  {photos[field.key] ? photos[field.key]?.name : `${field.label} upload required`}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
         <SubmissionStatus error={error} success={success} />
         <button className="primary-button" disabled={loading}>

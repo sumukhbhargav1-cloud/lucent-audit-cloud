@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { SubmissionStatus } from "@/components/submission-status";
+import { AUDIT_PHOTO_FIELDS, type AuditPhotoFieldKey } from "@/lib/audit-photo-fields";
 
 interface LookupResult {
   recordId: string;
@@ -19,11 +20,22 @@ export default function AfterCheckOutPage() {
   const [lookup, setLookup] = useState<LookupResult | null>(null);
   const [towelCount, setTowelCount] = useState("1");
   const [bedCondition, setBedCondition] = useState("good");
-  const [photos, setPhotos] = useState<File[]>([]);
+  const [photos, setPhotos] = useState<Record<AuditPhotoFieldKey, File | null>>({
+    acRemote: null,
+    tvRemote: null,
+    setTopBox: null,
+    towelPhoto: null,
+    bathroomPhotos: null,
+    kettleTray: null,
+    menuCards: null,
+  });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
+  const selectedPhotos = AUDIT_PHOTO_FIELDS.map((field) => photos[field.key]).filter(
+    (photo): photo is File => Boolean(photo),
+  );
 
   async function handleLookup() {
     setError("");
@@ -71,7 +83,7 @@ export default function AfterCheckOutPage() {
       return;
     }
 
-    if (photos.length < 7) {
+    if (selectedPhotos.length < AUDIT_PHOTO_FIELDS.length) {
       setError("All checkout audit photos are required before submission.");
       return;
     }
@@ -87,7 +99,7 @@ export default function AfterCheckOutPage() {
       formData.append("expectedCheckOutDate", lookup.expectedCheckOutDate);
       formData.append("towelCount", towelCount);
       formData.append("bedCondition", bedCondition);
-      photos.forEach((photo) => formData.append("photos", photo));
+      selectedPhotos.forEach((photo) => formData.append("photos", photo));
 
       const response = await fetch("/api/submissions/room-audit", {
         method: "POST",
@@ -173,14 +185,28 @@ export default function AfterCheckOutPage() {
           </div>
         ) : null}
         <div className="field">
-          <label>Required Photos</label>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            multiple
-            onChange={(event) => setPhotos(Array.from(event.target.files || []))}
-          />
+          <label>Required Upload Sections</label>
+          <div className="stack">
+            {AUDIT_PHOTO_FIELDS.map((field) => (
+              <div className="field" key={field.key}>
+                <label>{field.label}</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(event) =>
+                    setPhotos((current) => ({
+                      ...current,
+                      [field.key]: event.target.files?.[0] || null,
+                    }))
+                  }
+                />
+                <span className="field-hint">
+                  {photos[field.key] ? photos[field.key]?.name : `${field.label} upload required`}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
         <SubmissionStatus error={error} success={success} />
         <button className="primary-button" disabled={loading}>

@@ -1,3 +1,4 @@
+import { ReportDownloads } from "@/components/report-downloads";
 import { monthlyReportChecklist, taskDefinitions } from "@/lib/mock-data";
 
 export default function AdminPage() {
@@ -51,6 +52,8 @@ export default function AdminPage() {
           ))}
         </div>
       </section>
+
+      <ReportDownloads />
     </main>
   );
 }

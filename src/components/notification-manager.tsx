@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { requestNotificationPermission, startNotificationScheduler } from "@/lib/notifications";
+import {
+  isNotificationSchedulerEnabled,
+  requestNotificationPermission,
+  sendTestNotification,
+  startNotificationScheduler,
+} from "@/lib/notifications";
 
 export function NotificationManager() {
   const [permissionState, setPermissionState] = useState<NotificationPermission | "unsupported">(
@@ -9,7 +14,7 @@ export function NotificationManager() {
   );
 
   useEffect(() => {
-    if (permissionState === "granted") {
+    if (permissionState === "granted" && isNotificationSchedulerEnabled()) {
       startNotificationScheduler();
     }
   }, [permissionState]);
@@ -22,8 +27,18 @@ export function NotificationManager() {
     }
   }
 
-  if (permissionState === "granted" || permissionState === "unsupported") {
+  if (permissionState === "unsupported") {
     return null;
+  }
+
+  if (permissionState === "granted") {
+    return (
+      <div className="button-row">
+        <button className="ghost-button" type="button" onClick={sendTestNotification}>
+          Test Alert
+        </button>
+      </div>
+    );
   }
 
   return (

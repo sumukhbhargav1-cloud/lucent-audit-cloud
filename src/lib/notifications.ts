@@ -9,6 +9,9 @@ interface ScheduledAlert {
 }
 
 const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const STORAGE_PREFIX = "hotel-guardian-alert";
+const ENABLED_KEY = `${STORAGE_PREFIX}-enabled`;
+const CATCH_UP_WINDOW_MS = 90_000;
 
 const WORKER_ALERTS: ScheduledAlert[] = [
   {
@@ -59,14 +62,66 @@ const WATER_ALERTS: ScheduledAlert[] = ["06:00", "08:00", "10:00", "12:00", "14:
 const ALL_ALERTS = [...WORKER_ALERTS, ...TASK_ALERTS, ...WATER_ALERTS];
 
 let checkInterval: ReturnType<typeof setInterval> | null = null;
-const firedAlerts = new Set<string>();
+
+function getAlertStorageKey(alertId: string, dateKey: string) {
+  return `${STORAGE_PREFIX}-${alertId}-${dateKey}`;
+}
+
+function isBrowserSupported() {
+  return typeof window !== "undefined" && "Notification" in window;
+}
+
+function hasDayMatch(alert: ScheduledAlert, now: Date) {
+  if (!alert.days?.length) {
+    return true;
+  }
+
+  return alert.days.includes(DAYS[now.getDay()]);
+}
+
+function getScheduledDate(now: Date, time: string) {
+  const [hours, minutes] = time.split(":").map(Number);
+  const scheduled = new Date(now);
+  scheduled.setHours(hours, minutes, 0, 0);
+  return scheduled;
+}
+
+function wasAlertAlreadyFired(alertId: string, dateKey: string) {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.localStorage.getItem(getAlertStorageKey(alertId, dateKey)) === "1";
+}
+
+function markAlertFired(alertId: string, dateKey: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.setItem(getAlertStorageKey(alertId, dateKey), "1");
+}
+
+function shouldFireAlert(alert: ScheduledAlert, now: Date) {
+  if (!hasDayMatch(alert, now)) {
+    return false;
+  }
+
+  const dateKey = now.toISOString().slice(0, 10);
+  if (wasAlertAlreadyFired(alert.id, dateKey)) {
+    return false;
+  }
+
+  const scheduled = getScheduledDate(now, alert.time);
+  const delta = now.getTime() - scheduled.getTime();
+  return delta >= 0 && delta <= CATCH_UP_WINDOW_MS;
+}
 
 export async function requestNotificationPermission() {
-  if (typeof window === "undefined" || !("Notification" in window)) {
+  if (!isBrowserSupported()) {
     return false;
   }
 
   if (Notification.permission === "granted") {
+    window.localStorage.setItem(ENABLED_KEY, "1");
     return true;
   }
 
@@ -75,11 +130,14 @@ export async function requestNotificationPermission() {
   }
 
   const permission = await Notification.requestPermission();
+  if (permission === "granted") {
+    window.localStorage.setItem(ENABLED_KEY, "1");
+  }
   return permission === "granted";
 }
 
 export function sendNotification(title: string, body: string, tag: string) {
-  if (typeof window === "undefined" || !("Notification" in window)) {
+  if (!isBrowserSupported()) {
     return;
   }
 
@@ -95,35 +153,34 @@ export function sendNotification(title: string, body: string, tag: string) {
   });
 }
 
+function runAlertCheck() {
+  const now = new Date();
+  const dateKey = now.toISOString().slice(0, 10);
+
+  ALL_ALERTS.forEach((alert) => {
+    if (!shouldFireAlert(alert, now)) {
+      return;
+    }
+
+    markAlertFired(alert.id, dateKey);
+    sendNotification(alert.title, alert.body, alert.id);
+  });
+}
+
+export function isNotificationSchedulerEnabled() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.localStorage.getItem(ENABLED_KEY) === "1";
+}
+
 export function startNotificationScheduler() {
-  if (typeof window === "undefined" || checkInterval) {
+  if (!isBrowserSupported() || checkInterval) {
     return;
   }
 
-  checkInterval = setInterval(() => {
-    const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    const currentDay = DAYS[now.getDay()];
-    const todayKey = now.toISOString().slice(0, 10);
-
-    ALL_ALERTS.forEach((alert) => {
-      const alertKey = `${alert.id}-${todayKey}`;
-      if (firedAlerts.has(alertKey)) {
-        return;
-      }
-
-      if (alert.time !== currentTime) {
-        return;
-      }
-
-      if (alert.days && !alert.days.includes(currentDay)) {
-        return;
-      }
-
-      firedAlerts.add(alertKey);
-      sendNotification(alert.title, alert.body, alert.id);
-    });
-  }, 30000);
+  runAlertCheck();
+  checkInterval = setInterval(runAlertCheck, 20_000);
 }
 
 export function stopNotificationScheduler() {
@@ -133,4 +190,8 @@ export function stopNotificationScheduler() {
 
   clearInterval(checkInterval);
   checkInterval = null;
+}
+
+export function sendTestNotification() {
+  sendNotification("Hotel Ops test alert", "Notifications are working in this browser.", "hotel-ops-test");
 }
